@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Jira Ticket Link Copier",
+  "version": "1.0",
+  "description": "Copy Jira ticket title as a markdown link with Cmd+C",
+  "permissions": ["clipboardWrite"],
+  "content_scripts": [
+    {
+      "matches": ["https://*.atlassian.net/*"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "48": "icon.png"
+  }
+}
