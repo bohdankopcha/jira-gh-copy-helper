@@ -1,5 +1,5 @@
 document.addEventListener("keydown", (e) => {
-  if (!(e.metaKey && e.key === "c")) return;
+  if (!e.metaKey || e.key !== "c") return;
 
   // Don't override if user has text selected
   const selection = window.getSelection();
@@ -11,15 +11,31 @@ document.addEventListener("keydown", (e) => {
   e.preventDefault();
 
   const { key, summary, url } = ticketData;
-  const markdown = `[[${key}] ${summary}](${url})`;
+  const label = `[${key}] ${summary}`;
 
-  navigator.clipboard.writeText(markdown).then(() => {
-    showToast(markdown);
-  });
+  if (e.shiftKey) {
+    // Cmd+Shift+C → markdown
+    const markdown = `[${label}](${url})`;
+    navigator.clipboard.writeText(markdown).then(() => {
+      showToast("Markdown", markdown);
+    });
+  } else {
+    // Cmd+C → rich text link (for Slack)
+    const html = `<a href="${url}">${label}</a>`;
+    const blob = new Blob([html], { type: "text/html" });
+    const textBlob = new Blob([label], { type: "text/plain" });
+    navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": blob,
+        "text/plain": textBlob,
+      }),
+    ]).then(() => {
+      showToast("Rich link", label);
+    });
+  }
 });
 
 function getTicketData() {
-  // Try to get ticket key from the breadcrumb or URL
   const key = getTicketKey();
   if (!key) return null;
 
@@ -32,16 +48,13 @@ function getTicketData() {
 }
 
 function getTicketKey() {
-  // 1. From URL: /browse/SPM-783 or /browse/SPM-783?...
   const browseMatch = window.location.pathname.match(/\/browse\/([A-Z][A-Z0-9]+-\d+)/);
   if (browseMatch) return browseMatch[1];
 
-  // 2. From URL with selected issue in board/backlog view
   const searchParams = new URLSearchParams(window.location.search);
   const selectedIssue = searchParams.get("selectedIssue");
   if (selectedIssue && /^[A-Z][A-Z0-9]+-\d+$/.test(selectedIssue)) return selectedIssue;
 
-  // 3. From breadcrumb link on the page
   const breadcrumb = document.querySelector('[data-testid="issue.views.issue-base.foundation.breadcrumbs.current-issue.item"] a');
   if (breadcrumb) {
     const text = breadcrumb.textContent.trim();
@@ -52,14 +65,11 @@ function getTicketKey() {
 }
 
 function getTicketSummary() {
-  // Jira Cloud - main issue view
   const selectors = [
     '[data-testid="issue.views.issue-base.foundation.summary.heading"]',
     '[data-testid="issue.views.issue-details.header.summary"]',
     'h1[data-testid*="summary"]',
-    // Side panel
     '[data-testid="issue.views.issue-base.foundation.summary"] h1',
-    // Fallback: first h1 that looks like a title
     '#summary-val',
     '.ghx-selected .ghx-summary',
   ];
@@ -75,13 +85,13 @@ function getTicketSummary() {
   return null;
 }
 
-function showToast(text) {
+function showToast(mode, text) {
   const existing = document.getElementById("jira-copy-toast");
   if (existing) existing.remove();
 
   const toast = document.createElement("div");
   toast.id = "jira-copy-toast";
-  toast.textContent = `Copied: ${text}`;
+  toast.textContent = `${mode}: ${text}`;
   Object.assign(toast.style, {
     position: "fixed",
     bottom: "20px",
