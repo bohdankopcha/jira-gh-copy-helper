@@ -1,33 +1,27 @@
 document.addEventListener("keydown", (e) => {
   if (!e.metaKey || e.key !== "c") return;
 
-  // Don't override if user has text selected
   const selection = window.getSelection();
   if (selection && selection.toString().trim().length > 0) return;
 
-  const ticketData = getTicketData();
-  if (!ticketData) return;
+  const data = getPageData();
+  if (!data) return;
 
   e.preventDefault();
 
-  const { key, summary, url } = ticketData;
-  const label = `[${key}] ${summary}`;
+  const { label, url } = data;
 
   if (e.shiftKey) {
-    // Cmd+Shift+C → markdown
     const markdown = `[${label}](${url})`;
     navigator.clipboard.writeText(markdown).then(() => {
       showToast("Markdown", markdown);
     });
   } else {
-    // Cmd+C → rich text link (for Slack)
     const html = `<a href="${url}">${label}</a>`;
-    const blob = new Blob([html], { type: "text/html" });
-    const textBlob = new Blob([label], { type: "text/plain" });
     navigator.clipboard.write([
       new ClipboardItem({
-        "text/html": blob,
-        "text/plain": textBlob,
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([label], { type: "text/plain" }),
       }),
     ]).then(() => {
       showToast("Rich link", label);
@@ -35,19 +29,31 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-function getTicketData() {
-  const key = getTicketKey();
-  if (!key) return null;
+function getPageData() {
+  const host = window.location.hostname;
 
-  const summary = getTicketSummary();
-  if (!summary) return null;
+  if (host.endsWith("atlassian.net")) return getJiraData();
+  if (host === "github.com") return getGitHubData();
 
-  const url = `${window.location.origin}/browse/${key}`;
-
-  return { key, summary, url };
+  return null;
 }
 
-function getTicketKey() {
+// --- Jira ---
+
+function getJiraData() {
+  const key = getJiraKey();
+  if (!key) return null;
+
+  const summary = getJiraSummary();
+  if (!summary) return null;
+
+  return {
+    label: `[${key}] ${summary}`,
+    url: `${window.location.origin}/browse/${key}`,
+  };
+}
+
+function getJiraKey() {
   const browseMatch = window.location.pathname.match(/\/browse\/([A-Z][A-Z0-9]+-\d+)/);
   if (browseMatch) return browseMatch[1];
 
@@ -64,7 +70,7 @@ function getTicketKey() {
   return null;
 }
 
-function getTicketSummary() {
+function getJiraSummary() {
   const selectors = [
     '[data-testid="issue.views.issue-base.foundation.summary.heading"]',
     '[data-testid="issue.views.issue-details.header.summary"]',
@@ -84,6 +90,51 @@ function getTicketSummary() {
 
   return null;
 }
+
+// --- GitHub ---
+
+function getGitHubData() {
+  // Match PR or Issue URL: /owner/repo/pull/123 or /owner/repo/issues/123
+  const match = window.location.pathname.match(/\/[^/]+\/[^/]+\/(pull|issues)\/(\d+)/);
+  if (!match) return null;
+
+  const number = match[2];
+
+  // Try DOM selectors first
+  const titleEl =
+    document.querySelector(".gh-header-title .js-issue-title") ||
+    document.querySelector(".gh-header-title .markdown-title") ||
+    document.querySelector("bdi.js-issue-title") ||
+    document.querySelector("[data-testid='issue-title']") ||
+    document.querySelector("h1.gh-header-title span") ||
+    document.querySelector("h1 .markdown-title");
+
+  if (titleEl) {
+    const title = titleEl.textContent.trim();
+    if (title) {
+      return {
+        label: `[#${number}] ${title}`,
+        url: window.location.origin + window.location.pathname,
+      };
+    }
+  }
+
+  // Fallback: parse from <title> tag
+  // Format: "Title by author · Pull Request #123 · org/repo"
+  // or:     "Title · Issue #123 · org/repo"
+  const pageTitle = document.title;
+  const prMatch = pageTitle.match(/^(.+?)(?:\s+by\s+.+?)?\s+·\s+(?:Pull Request|Issue)\s+#\d+/);
+  if (prMatch) {
+    return {
+      label: `[#${number}] ${prMatch[1].trim()}`,
+      url: window.location.origin + window.location.pathname,
+    };
+  }
+
+  return null;
+}
+
+// --- Toast ---
 
 function showToast(mode, text) {
   const existing = document.getElementById("jira-copy-toast");
