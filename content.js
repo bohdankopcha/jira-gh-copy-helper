@@ -48,7 +48,7 @@ function getJiraData() {
   if (!summary) return null;
 
   return {
-    label: `[${key}] ${summary}`,
+    label: `${key}: ${summary}`,
     url: `${window.location.origin}/browse/${key}`,
   };
 }
@@ -113,7 +113,7 @@ function getGitHubData() {
     const title = titleEl.textContent.trim();
     if (title) {
       return {
-        label: `[#${number}] ${title}`,
+        label: `#${number}: ${title}`,
         url: window.location.origin + window.location.pathname,
       };
     }
@@ -126,7 +126,7 @@ function getGitHubData() {
   const prMatch = pageTitle.match(/^(.+?)(?:\s+by\s+.+?)?\s+·\s+(?:Pull Request|Issue)\s+#\d+/);
   if (prMatch) {
     return {
-      label: `[#${number}] ${prMatch[1].trim()}`,
+      label: `#${number}: ${prMatch[1].trim()}`,
       url: window.location.origin + window.location.pathname,
     };
   }
