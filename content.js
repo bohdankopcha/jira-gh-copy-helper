@@ -1,5 +1,7 @@
 document.addEventListener("keydown", (e) => {
-  if (!e.metaKey || e.key !== "c") return;
+  const isMac = navigator.platform.startsWith("Mac") || navigator.userAgent.includes("Mac");
+  const modifier = isMac ? e.metaKey : e.ctrlKey;
+  if (!modifier || e.key !== "c") return;
 
   const selection = window.getSelection();
   if (selection && selection.toString().trim().length > 0) return;
