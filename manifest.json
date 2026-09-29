@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Ticket Link Copier",
-  "version": "1.1",
-  "description": "Copy Jira/GitHub ticket titles as links with Cmd+C",
+  "name": "Jira & GitHub Copy Helper",
+  "version": "1.2",
+  "description": "Copy Jira/GitHub ticket links with Cmd+C and GitHub PR branch ranges/compare URLs with Option+C",
   "permissions": ["clipboardWrite"],
   "content_scripts": [
     {

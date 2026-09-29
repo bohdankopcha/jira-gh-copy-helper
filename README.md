@@ -9,6 +9,13 @@ When you're on a Jira ticket or GitHub PR/Issue page, press:
 - **`Cmd+C`** — copies a rich text link (paste into Slack, Notion, etc. and it becomes a clickable link)
 - **`Cmd+Shift+C`** — copies a markdown link
 
+On a GitHub PR page, you can also copy the branch range (handy for re-creating a PR via URL):
+
+- **`Option+C`** — copies `<base>...<head>`
+- **`Shift+Option+C`** — copies `<repo url>/compare/<base>...<head>`
+
+(`Alt+C` / `Shift+Alt+C` on Windows.) For PRs from forks the head is `owner:branch`.
+
 If you have text selected on the page, standard copy behavior is preserved.
 
 ### Copy formats

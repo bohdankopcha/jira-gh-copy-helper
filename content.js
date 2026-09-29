@@ -1,7 +1,31 @@
 document.addEventListener("keydown", (e) => {
   const isMac = navigator.platform.startsWith("Mac") || navigator.userAgent.includes("Mac");
   const modifier = isMac ? e.metaKey : e.ctrlKey;
-  if (!modifier || e.key !== "c") return;
+
+  // Opt+C / Shift+Opt+C: branch compare (e.key is "ç" with Option on Mac, so use e.code)
+  if (e.altKey && !e.metaKey && !e.ctrlKey && e.code === "KeyC") {
+    // Don't hijack typing (Option+C types "ç" in text fields)
+    const t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+    if (window.location.hostname !== "github.com") return;
+    const branches = getGitHubBranches();
+    if (!branches) {
+      showToast("Error", "Could not find PR branches on this page");
+      return;
+    }
+
+    e.preventDefault();
+
+    const range = `${branches.base}...${branches.head}`;
+    const text = e.shiftKey ? `${branches.repoUrl}/compare/${range}` : range;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast(e.shiftKey ? "Compare URL" : "Branches", text);
+    });
+    return;
+  }
+
+  if (!modifier || e.altKey || e.key !== "c") return;
 
   const selection = window.getSelection();
   if (selection && selection.toString().trim().length > 0) return;
@@ -29,7 +53,7 @@ document.addEventListener("keydown", (e) => {
       showToast("Rich link", label);
     });
   }
-});
+}, true);
 
 function getPageData() {
   const host = window.location.hostname;
@@ -134,6 +158,50 @@ function getGitHubData() {
   }
 
   return null;
+}
+
+// Branches of the current PR: base (merged into) and head (being merged)
+function getGitHubBranches() {
+  const match = window.location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/\d+/);
+  if (!match) return null;
+
+  // New React UI: header holds two branch links, base first, then head (being merged)
+  const links = document.querySelectorAll(
+    '[class*="PullRequestHeaderBranches-module__branches"] a[class*="PullRequestBranchName"]'
+  );
+  if (links.length >= 2) {
+    const refName = (a) => {
+      const m = a.getAttribute("href").match(/^\/([^/]+)\/([^/]+)\/tree\/(.+)$/);
+      if (!m) return a.textContent.trim();
+      const branch = decodeURIComponent(m[3]);
+      // Head from a fork: prefix with owner, as compare URLs expect
+      return m[1] === match[1] && m[2] === match[2] ? branch : `${m[1]}:${branch}`;
+    };
+    return {
+      base: refName(links[0]),
+      head: refName(links[1]),
+      repoUrl: `${window.location.origin}/${match[1]}/${match[2]}`,
+    };
+  }
+
+  // Legacy UI
+  const readRef = (selector) => {
+    const el = document.querySelector(selector);
+    if (!el) return null;
+    // Same-repo PRs show "branch", forks show "owner:branch"
+    const text = el.textContent.replace(/\s+/g, "").trim();
+    return text || null;
+  };
+
+  const base = readRef(".commit-ref.base-ref") || readRef(".base-ref") || readRef("[class*='base-ref']");
+  const head = readRef(".commit-ref.head-ref") || readRef(".head-ref") || readRef("[class*='head-ref']");
+  if (!base || !head) return null;
+
+  return {
+    base,
+    head,
+    repoUrl: `${window.location.origin}/${match[1]}/${match[2]}`,
+  };
 }
 
 // --- Toast ---
